@@ -1,0 +1,9 @@
+../Core/Src/bmp280.c:11:26:BMP280_ReadRegs	1
+../Core/Src/bmp280.c:16:26:BMP280_WriteReg	1
+../Core/Src/bmp280.c:22:26:BMP280_ReadCalibration	2
+../Core/Src/bmp280.c:46:16:BMP280_CompensateTemperature	1
+../Core/Src/bmp280.c:63:17:BMP280_CompensatePressure	2
+../Core/Src/bmp280.c:89:19:BMP280_Init	7
+../Core/Src/bmp280.c:124:19:BMP280_ReadData	2
+../Core/Src/bmp280.c:142:6:BMP280_SetReferencePressure	1
+../Core/Src/bmp280.c:147:7:BMP280_CalculateAltitude	1
