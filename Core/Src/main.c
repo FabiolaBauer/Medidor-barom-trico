@@ -56,6 +56,8 @@ typedef enum {
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+#define DEBOUNCE_MS 200
+uint32_t last_button_tick = 0;
 BMP280_HandleTypeDef bmp280;
 SystemState_t current_state = STATE_INIT;
 
@@ -86,7 +88,11 @@ void SystemClock_Config(void);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if (GPIO_Pin == B1_Pin) {
-        flag_button = 1;
+    	uint32_t now = HAL_GetTick();
+    	if (now - last_button_tick > DEBOUNCE_MS) {
+			last_button_tick = now;
+			flag_button = 1;
+		}
     }
 }
 
