@@ -60,6 +60,7 @@ typedef enum {
 uint32_t last_button_tick = 0;
 BMP280_HandleTypeDef bmp280;
 SystemState_t current_state = STATE_INIT;
+SystemState_t previous_state = STATE_INIT;
 
 volatile uint8_t flag_button = 0;
 
@@ -70,11 +71,17 @@ float pressao_pa    = 0.0f;
 float altitude_m    = 0.0f;
 uint16_t adc_raw     = 0;
 
-uint32_t led_last_toggle_tick = 0;        /* usado so nos estados que ainda piscam (CALIBRATE/ERROR) */
+/* ---- Filtro de suavizacao do ruído natural no sensor e do ADC. pode dar um delay para reagir às mudanças */
+#define EMA_ALPHA 0.2f
+float    pressao_filtrada     = 0.0f;
+uint8_t  pressao_filtro_pronto = 0;
+uint16_t adc_filtrado          = 0;
+uint8_t  adc_filtro_pronto     = 0;
+
+uint32_t led_last_toggle_tick = 0;
 uint8_t  led_blink_state = 0;
 
-uint32_t last_sample_tick = 0;            /* controla o intervalo de 1s sem travar o loop */
-/* USER CODE END PV */
+uint32_t last_sample_tick = 0;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -96,11 +103,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     }
 }
 
-static uint16_t Read_Potentiometer(void)
+static uint16_t Read_Potentiometer()
 {
     uint16_t valor = 0;
     HAL_ADC_Start(&hadc1);
-    /* espera a conversão terminar (10s) */
+    /* espera a conversão terminar (10ms) */
     if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
         valor = HAL_ADC_GetValue(&hadc1);
     }
@@ -143,9 +150,21 @@ static void Update_LED_PWM(SystemState_t state)
     }
 }
 
+static void Show_Status_Message(const char *linha1, const char *linha2)
+{
+    nokia5110_clear();
+    nokia5110_goto_xy(6, 2);
+    nokia5110_puts(linha1);
+    if (linha2 != NULL) {
+        nokia5110_goto_xy(6, 3);
+        nokia5110_puts(linha2);
+    }
+    nokia5110_render();
+}
+
 static void Update_Display(void)
 {
-    char linha[17]; /* 84px de largura / ~5px por caractere = ~14 chars por linha */
+    char linha[17]; /* 84px de largura  */
 
     nokia5110_clear();
 
@@ -154,7 +173,7 @@ static void Update_Display(void)
     nokia5110_puts(linha);
 
     nokia5110_goto_xy(0, 1);
-    snprintf(linha, sizeof(linha), "Pres: %.0fPa", pressao_pa);
+    snprintf(linha, sizeof(linha), "Pres: %.0fPa", pressao_filtrada);
     nokia5110_puts(linha);
 
     nokia5110_goto_xy(0, 2);
@@ -162,7 +181,7 @@ static void Update_Display(void)
     nokia5110_puts(linha);
 
     nokia5110_goto_xy(0, 3);
-    snprintf(linha, sizeof(linha), "Pot: %u", adc_raw);
+    snprintf(linha, sizeof(linha), "Pot: %u", adc_filtrado);
     nokia5110_puts(linha);
 
     nokia5110_render();
@@ -221,7 +240,26 @@ int main(void)
   while (1)
   {
     adc_raw = Read_Potentiometer();
+
+    /* Atualiza a versao filtrada do ADC a cada iteracao */
+    if (!adc_filtro_pronto) {
+        adc_filtrado = adc_raw;
+        adc_filtro_pronto = 1;
+    } else {
+        adc_filtrado = (uint16_t)(EMA_ALPHA * adc_raw + (1.0f - EMA_ALPHA) * adc_filtrado);
+    }
+
     Update_LED_PWM(current_state);
+
+	if (current_state != previous_state) {
+		previous_state = current_state;
+
+		if (current_state == STATE_CALIBRATE_REF) {
+			Show_Status_Message("Aperte o", "botao B1");
+		} else if (current_state == STATE_ERROR) {
+			Show_Status_Message("ERRO:", "sensor BMP280");
+		}
+	}
 
     switch (current_state)
     {
@@ -239,22 +277,30 @@ int main(void)
             break;
 
         case STATE_MEASURE:
-            if (HAL_GetTick() - last_sample_tick >= 1000) {
-                last_sample_tick = HAL_GetTick();
+        	if (HAL_GetTick() - last_sample_tick >= 1000) {
+				last_sample_tick = HAL_GetTick();
 
-                if (BMP280_ReadData(&bmp280, &temperatura_c, &pressao_pa) == HAL_OK) {
-                    altitude_m = BMP280_CalculateAltitude(&bmp280, pressao_pa);
-                    current_state = STATE_DISPLAY;
-                } else {
-                    current_state = STATE_ERROR;
-                }
-            }
+				if (BMP280_ReadData(&bmp280, &temperatura_c, &pressao_pa) == HAL_OK) {
 
-            if (flag_button) {
-                flag_button = 0;
-                current_state = STATE_CALIBRATE_REF;
-            }
-            break;
+					/* Filtro de suavizacao (EMA) na pressao. */
+					if (!pressao_filtro_pronto) {
+					    pressao_filtrada = pressao_pa;
+					    pressao_filtro_pronto = 1;
+					} else {
+					    pressao_filtrada = EMA_ALPHA * pressao_pa + (1.0f - EMA_ALPHA) * pressao_filtrada;
+					}
+
+					altitude_m = BMP280_CalculateAltitude(&bmp280, pressao_filtrada);
+					current_state = STATE_DISPLAY;
+				} else {
+					current_state = STATE_ERROR;
+				}
+			}
+			if (flag_button) {
+				flag_button = 0;
+				current_state = STATE_CALIBRATE_REF;
+			}
+			break;
 
         case STATE_DISPLAY:
             Update_Display();

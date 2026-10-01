@@ -26,17 +26,17 @@ static HAL_StatusTypeDef BMP280_ReadCalibration(BMP280_HandleTypeDef *dev)
     if (st != HAL_OK) return st;
 
     dev->dig_T1 = (uint16_t)(c[1]  << 8 | c[0]);
-    dev->dig_T2 = (int16_t)(c[3]  << 8 | c[2]);
-    dev->dig_T3 = (int16_t)(c[5]  << 8 | c[4]);
+    dev->dig_T2 = (int16_t) (c[3]  << 8 | c[2]);
+    dev->dig_T3 = (int16_t) (c[5]  << 8 | c[4]);
     dev->dig_P1 = (uint16_t)(c[7]  << 8 | c[6]);
-    dev->dig_P2 = (int16_t)(c[9]  << 8 | c[8]);
-    dev->dig_P3 = (int16_t)(c[11] << 8 | c[10]);
-    dev->dig_P4 = (int16_t)(c[13] << 8 | c[12]);
-    dev->dig_P5 = (int16_t)(c[15] << 8 | c[14]);
-    dev->dig_P6 = (int16_t)(c[17] << 8 | c[16]);
-    dev->dig_P7 = (int16_t)(c[19] << 8 | c[18]);
-    dev->dig_P8 = (int16_t)(c[21] << 8 | c[20]);
-    dev->dig_P9 = (int16_t)(c[23] << 8 | c[22]);
+    dev->dig_P2 = (int16_t) (c[9]  << 8 | c[8]);
+    dev->dig_P3 = (int16_t) (c[11] << 8 | c[10]);
+    dev->dig_P4 = (int16_t) (c[13] << 8 | c[12]);
+    dev->dig_P5 = (int16_t) (c[15] << 8 | c[14]);
+    dev->dig_P6 = (int16_t) (c[17] << 8 | c[16]);
+    dev->dig_P7 = (int16_t) (c[19] << 8 | c[18]);
+    dev->dig_P8 = (int16_t) (c[21] << 8 | c[20]);
+    dev->dig_P9 = (int16_t) (c[23] << 8 | c[22]);
 
     return HAL_OK;
 }
@@ -57,9 +57,7 @@ static int32_t BMP280_CompensateTemperature(BMP280_HandleTypeDef *dev, int32_t a
     return T;
 }
 
-/* Formula oficial de compensacao de pressao (datasheet 3.11.3)
- * Requer que BMP280_CompensateTemperature ja tenha sido chamada antes (usa t_fine).
- * Retorna pressao em Pa, formato Q24.8 (>>8 da o valor em Pa inteiro) */
+/* Formula oficial de compensacao de pressao (datasheet 3.11.3) */
 static uint32_t BMP280_CompensatePressure(BMP280_HandleTypeDef *dev, int32_t adc_P)
 {
     int64_t var1, var2, p;
@@ -84,8 +82,6 @@ static uint32_t BMP280_CompensatePressure(BMP280_HandleTypeDef *dev, int32_t adc
     return (uint32_t)p; /* Q24.8: divida por 256.0 para obter Pa */
 }
 
-/* ---------------- API publica ---------------- */
-
 HAL_StatusTypeDef BMP280_Init(BMP280_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c)
 {
     dev->hi2c = hi2c;
@@ -102,7 +98,7 @@ HAL_StatusTypeDef BMP280_Init(BMP280_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c
     if (BMP280_WriteReg(dev, BMP280_REG_RESET, BMP280_SOFT_RESET_CMD) != HAL_OK) {
         return HAL_ERROR;
     }
-    HAL_Delay(5); /* datasheet recomenda aguardar apos reset */
+    HAL_Delay(5);
 
     if (BMP280_ReadCalibration(dev) != HAL_OK) {
         return HAL_ERROR;

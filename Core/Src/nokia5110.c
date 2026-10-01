@@ -1,6 +1,6 @@
 /**
  * nokia5110.c
-*/
+ */
 
 #include "nokia5110.h"
 #include <string.h>
@@ -77,14 +77,25 @@ static HAL_StatusTypeDef nokia_write_data(uint8_t dado)
     return status;
 }
 
-/* ---- API publica ---- */
+#define NOKIA_ROTATE_180 1
+
+#if NOKIA_ROTATE_180
+/* função para não exibir o texto de cabeça para baixo  */
+static uint8_t Reverse_Bits(uint8_t b)
+{
+    b = (uint8_t)((b & 0xF0) >> 4 | (b & 0x0F) << 4);
+    b = (uint8_t)((b & 0xCC) >> 2 | (b & 0x33) << 2);
+    b = (uint8_t)((b & 0xAA) >> 1 | (b & 0x55) << 1);
+    return b;
+}
+#endif
 
 HAL_StatusTypeDef nokia5110_init(SPI_HandleTypeDef *hspi, uint8_t contraste)
 {
     hspi_nokia = hspi;
     HAL_StatusTypeDef status;
 
-    HAL_GPIO_WritePin(NOKIA_RST_GPIO_Port, NOKIA_RST_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(NOKIA_RST_GPIO_Port, NOKIA_RST_Pin, GPIO_PIN_RESET); // pulso de reset
     HAL_Delay(10);
     HAL_GPIO_WritePin(NOKIA_RST_GPIO_Port, NOKIA_RST_Pin, GPIO_PIN_SET);
     HAL_Delay(10);
@@ -140,9 +151,21 @@ HAL_StatusTypeDef nokia5110_render(void)
     status  = nokia_write_cmd(NOKIA_CMD_SET_X_ADDR | 0);
     status |= nokia_write_cmd(NOKIA_CMD_SET_Y_ADDR | 0);
 
+#if NOKIA_ROTATE_180
+    /* para não exibir o texto de cabeça para baixo */
+    for (uint8_t banda = 0; banda < NOKIA_ROWS; banda++) {
+        uint8_t banda_origem = (NOKIA_ROWS - 1) - banda;
+        for (uint8_t x = 0; x < NOKIA_WIDTH; x++) {
+            uint8_t x_origem = (NOKIA_WIDTH - 1) - x;
+            uint8_t byte = framebuffer[(uint16_t)banda_origem * NOKIA_WIDTH + x_origem];
+            status |= nokia_write_data(Reverse_Bits(byte));
+        }
+    }
+#else
     for (uint16_t i = 0; i < sizeof(framebuffer); i++) {
         status |= nokia_write_data(framebuffer[i]);
     }
+#endif
 
     return status;
 }
