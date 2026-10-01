@@ -14,6 +14,7 @@ typedef struct { char c; uint8_t col[5]; } nokia_glyph_t;
 
 static const nokia_glyph_t fonte[] = {
     {' ', {0x00,0x00,0x00,0x00,0x00}},
+    {'-', {0x08,0x08,0x08,0x08,0x08}},
     {'.', {0x00,0x60,0x60,0x00,0x00}},
     {':', {0x00,0x36,0x36,0x00,0x00}},
     {'0', {0x3E,0x51,0x49,0x45,0x3E}},
@@ -27,13 +28,20 @@ static const nokia_glyph_t fonte[] = {
     {'8', {0x36,0x49,0x49,0x49,0x36}},
     {'9', {0x06,0x49,0x49,0x29,0x1E}},
     {'A', {0x7E,0x11,0x11,0x11,0x7E}},
+    {'B', {0x7F,0x49,0x49,0x49,0x36}},
     {'C', {0x3E,0x41,0x41,0x41,0x22}},
+    {'E', {0x7F,0x49,0x49,0x49,0x41}},
+    {'M', {0x7F,0x02,0x0C,0x02,0x7F}},
+    {'O', {0x3E,0x41,0x41,0x41,0x3E}},
     {'P', {0x7F,0x09,0x09,0x09,0x06}},
+    {'R', {0x7F,0x09,0x19,0x29,0x46}},
     {'T', {0x01,0x01,0x7F,0x01,0x01}},
     {'a', {0x20,0x54,0x54,0x54,0x78}},
+    {'b', {0x7F,0x48,0x44,0x44,0x38}},
     {'e', {0x38,0x54,0x54,0x54,0x18}},
     {'l', {0x00,0x41,0x7F,0x40,0x00}},
     {'m', {0x7C,0x04,0x18,0x04,0x78}},
+    {'n', {0x7C,0x08,0x04,0x04,0x78}},
     {'o', {0x38,0x44,0x44,0x44,0x38}},
     {'p', {0x7C,0x14,0x14,0x14,0x08}},
     {'r', {0x7C,0x08,0x04,0x04,0x08}},
@@ -55,11 +63,11 @@ static HAL_StatusTypeDef nokia_write_cmd(uint8_t cmd)
 {
     HAL_StatusTypeDef status;
 
-    HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_RESET);   // DC Low = comando
 
-    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_RESET);   // CS Low
     status = HAL_SPI_Transmit(hspi_nokia, &cmd, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_SET);     // CS High
 
     return status;
 }
@@ -68,11 +76,11 @@ static HAL_StatusTypeDef nokia_write_data(uint8_t dado)
 {
     HAL_StatusTypeDef status;
 
-    HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_SET);     // DC High = dado
 
-    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_RESET);   // CS Low
     status = HAL_SPI_Transmit(hspi_nokia, &dado, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(NOKIA_CS_GPIO_Port, NOKIA_CS_Pin, GPIO_PIN_SET);     // CS High
 
     return status;
 }
@@ -80,7 +88,6 @@ static HAL_StatusTypeDef nokia_write_data(uint8_t dado)
 #define NOKIA_ROTATE_180 1
 
 #if NOKIA_ROTATE_180
-/* função para não exibir o texto de cabeça para baixo  */
 static uint8_t Reverse_Bits(uint8_t b)
 {
     b = (uint8_t)((b & 0xF0) >> 4 | (b & 0x0F) << 4);
@@ -101,7 +108,7 @@ HAL_StatusTypeDef nokia5110_init(SPI_HandleTypeDef *hspi, uint8_t contraste)
     HAL_Delay(10);
 
     status  = nokia_write_cmd(NOKIA_CMD_FUNCTION_SET_EXTENDED);
-    status |= nokia_write_cmd(NOKIA_CMD_SET_VOP_BASE | (contraste & 0x7F));
+    status |= nokia_write_cmd(NOKIA_CMD_SET_VOP_BASE | (contraste & 0x7F)); // ajusta o Vop (contraste)
     status |= nokia_write_cmd(NOKIA_CMD_TEMP_CONTROL);
     status |= nokia_write_cmd(NOKIA_CMD_BIAS_SYSTEM);
     status |= nokia_write_cmd(NOKIA_CMD_FUNCTION_SET_BASIC);
@@ -152,7 +159,6 @@ HAL_StatusTypeDef nokia5110_render(void)
     status |= nokia_write_cmd(NOKIA_CMD_SET_Y_ADDR | 0);
 
 #if NOKIA_ROTATE_180
-    /* para não exibir o texto de cabeça para baixo */
     for (uint8_t banda = 0; banda < NOKIA_ROWS; banda++) {
         uint8_t banda_origem = (NOKIA_ROWS - 1) - banda;
         for (uint8_t x = 0; x < NOKIA_WIDTH; x++) {

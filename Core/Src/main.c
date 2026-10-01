@@ -73,10 +73,10 @@ uint16_t adc_raw     = 0;
 
 /* ---- Filtro de suavizacao do ruído natural no sensor e do ADC. pode dar um delay para reagir às mudanças */
 #define EMA_ALPHA 0.2f
-float    pressao_filtrada     = 0.0f;
-uint8_t  pressao_filtro_pronto = 0;
-uint16_t adc_filtrado          = 0;
-uint8_t  adc_filtro_pronto     = 0;
+float pressao_filtrada = 0.0f;
+uint8_t pressao_filtro_pronto = 0;
+uint16_t adc_filtrado = 0;
+uint8_t adc_filtro_pronto = 0;
 
 uint32_t led_last_toggle_tick = 0;
 uint8_t  led_blink_state = 0;
@@ -226,13 +226,14 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 
+  current_state = STATE_CALIBRATE_REF;
+
   if (BMP280_Init(&bmp280, &hi2c1) != HAL_OK) {
       current_state = STATE_ERROR;
   }
 
   nokia5110_init(&hspi1, 0x38);
 
-  current_state = STATE_CALIBRATE_REF;
   /* USER CODE END 2 */
 
   /* Infinite loop */
